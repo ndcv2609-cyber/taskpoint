@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TaskPoint — Work.ink Callback Demo</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6fb;color:#172033}
+header{background:#172033;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.logo{font-size:22px;font-weight:800}.wallet{background:#fff2b3;color:#604900;padding:9px 13px;border-radius:20px;font-weight:700}
+main{max-width:1000px;margin:24px auto;padding:0 15px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.nav button{border:0;background:#fff;padding:11px 15px;border-radius:10px;cursor:pointer}.nav button.active{background:#172033;color:#fff}
+.page{display:none}.page.active{display:block}
+.card{background:#fff;border-radius:15px;padding:18px;margin:12px 0;box-shadow:0 3px 12px #0001}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.task h3{margin:0 0 7px}.muted{color:#667085;font-size:14px}.money{font-weight:800;color:#147a4b}
+input,textarea,select{width:100%;padding:11px;margin:6px 0 12px;border:1px solid #ccd2dc;border-radius:8px;font:inherit}
+button.primary{border:0;background:#2563eb;color:#fff;padding:10px 15px;border-radius:9px;cursor:pointer}
+button.danger{border:0;background:#d92d20;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.stat{font-size:26px;font-weight:800}.notice{padding:12px;background:#eef6ff;border-left:4px solid #2563eb;border-radius:8px;margin-bottom:14px}.warning{background:#fff4e5;border-left-color:#d97706}.success{background:#ecfdf3;border-left-color:#039855}.template{font-family:monospace;overflow-wrap:anywhere;background:#f8fafc;padding:10px;border-radius:8px}.hidden{display:none}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #eee;font-size:14px}
+.badge{display:inline-block;padding:5px 8px;border-radius:15px;background:#e8f7ee;color:#147a4b;font-size:12px}
+small{color:#667085}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">TaskPoint</div>
+  <div class="wallet">⭐ <span id="points">500</span> điểm</div>
+</header>
+
+<main>
+<div class="notice warning"><b>Bản thử nghiệm:</b> file HTML chạy trên điện thoại chỉ lưu dữ liệu trong trình duyệt. Chưa có máy chủ, tài khoản người dùng hay thanh toán thật. Muốn Work.ink quay về tự kiểm tra token, phải đăng file lên một địa chỉ HTTPS công khai trước; không dùng địa chỉ <code>content://</code> của điện thoại.</div>
+<div class="nav">
+  <button class="active" onclick="page('user',this)">👤 Người dùng</button>
+  <button onclick="page('sponsor',this)">🏢 Nhà tài trợ</button>
+  <button onclick="page('admin',this)">🛠️ Quản trị</button>
+</div>
+
+<section id="user" class="page active">
+  <div class="notice warning"><b>Chế độ demo:</b> điểm là dữ liệu trên thiết bị, không phải tiền và không thể rút.</div>
+  <div class="card">
+    <div class="muted">Số dư của bạn</div>
+    <div class="stat">⭐ <span id="points2">500</span> điểm</div>
+    <small>Quy ước demo: 100 điểm = 1.000đ</small>
+  </div>
+  <h2>Nhiệm vụ đang có</h2>
+  <div id="verifyStatus" class="notice">Khi được đăng trên HTTPS và cấu hình đúng đích Work.ink, trang sẽ thử xác minh token khi quay lại. Bản HTML đơn lẻ không đủ an toàn để phát thưởng thật.</div>
+  <div id="taskList" class="grid"></div>
+</section>
+
+<section id="sponsor" class="page">
+  <div class="notice warning"><b>Nhà tài trợ:</b> dữ liệu và ngân sách chỉ là mô phỏng; không thu/chi tiền thật.</div>
+  <div class="card">
+    <h2>🔗 Cấu hình đường quay về Work.ink</h2>
+    <p>1) Đăng file TaskPoint lên một dịch vụ lưu trữ web để có địa chỉ <b>HTTPS công khai</b>. 2) Dán địa chỉ đó dưới đây. 3) Sao chép mẫu đích vào trường <b>Destination</b> của Work.ink, rồi lưu link. 4) Dán link Work.ink rút gọn vào ô “Link Work.ink” khi tạo nhiệm vụ.</p>
+    <label>Địa chỉ HTTPS công khai của TaskPoint (không phải content://)</label>
+    <input id="siteUrl" type="url" placeholder="https://ten-trang-cua-ban.example">
+    <button class="primary" onclick="makeDestinationTemplate()">Tạo mẫu Destination</button>
+    <div id="destinationHelp" class="notice hidden"></div>
+    <label>Mẫu Destination cho Work.ink</label>
+    <textarea id="destinationTemplate" rows="2" readonly placeholder="Mẫu sẽ xuất hiện ở đây"></textarea>
+    <small>Work.ink thay <code>{TOKEN}</code> bằng token khi chuyển hướng về trang của bạn. API token được gọi từ trình duyệt có thể bị trình duyệt/chính sách mạng chặn; bản demo này không thay thế xác minh ở máy chủ.</small>
+  </div>
+  <div class="card">
+    <h2>➕ Tạo nhiệm vụ</h2>
+    <label>Tên nhiệm vụ</label>
+    <input id="tName" placeholder="VD: Hoàn thành khảo sát sản phẩm">
+    <label>Mô tả</label>
+    <textarea id="tDesc" rows="3" placeholder="Người dùng cần làm gì?"></textarea>
+    <label>Link Work.ink</label>
+    <input id="tLink" type="url" placeholder="https://work.ink/...">
+    <small>Dán link rút gọn dạng <code>https://work.ink/...</code>. Trước đó, Destination trong Work.ink phải trỏ về địa chỉ HTTPS TaskPoint của bạn kèm <code>?token={TOKEN}</code>.</small>
+    <label>Điểm thưởng mỗi lượt</label>
+    <input id="tReward" type="number" min="1" value="100">
+    <label>Ngân sách nhiệm vụ (đồng)</label>
+    <input id="tBudget" type="number" min="1000" value="100000">
+    <label>Số lượt tối đa</label>
+    <input id="tLimit" type="number" min="1" value="100">
+    <button class="primary" onclick="createTask()">Tạo nhiệm vụ</button>
+    <p id="sMsg"></p>
+  </div>
+  <div class="card">
+    <h2>Nhiệm vụ của nhà tài trợ</h2>
+    <div id="sponsorList"></div>
+  </div>
+</section>
+
+<section id="admin" class="page">
+  <div class="notice">Trang quản trị mô phỏng: dùng để xem nhiệm vụ và số lượt đã hoàn thành.</div>
+  <div class="card">
+    <h2>📊 Tổng quan</h2>
+    <div class="grid">
+      <div><small>Nhiệm vụ</small><div class="stat" id="countTasks">0</div></div>
+      <div><small>Lượt hoàn thành</small><div class="stat" id="countDone">0</div></div>
+      <div><small>Điểm đã phát</small><div class="stat" id="countPoints">0</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Danh sách</h2>
+    <div id="adminList"></div>
+  </div>
+</section>
+</main>
+
+<script>
+const KEY='taskpoint_v2';
+let data=JSON.parse(localStorage.getItem(KEY)||'null')||{
+ points:500,
+ tasks:[
+  {id:1,name:'Khảo sát mẫu',desc:'Hoàn thành khảo sát thử nghiệm 1 phút.',reward:100,budget:100000,limit:100,done:0,active:true},
+  {id:2,name:'Xem video giới thiệu',desc:'Xem video mẫu đến cuối.',reward:150,budget:75000,limit:50,done:0,active:true}
+ ]
+};
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function page(id,btn){
+ document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+ btn.classList.add('active');render();
+}
+function getToken(){
+ const params=new URLSearchParams(window.location.search);
+ return params.get('token')||params.get('hash')||'';
+}
+function getPendingTask(){
+ const id=localStorage.getItem('taskpoint_pending_task');
+ return id?data.tasks.find(x=>String(x.id)===String(id)):null;
+}
+async function verifyWorkInkToken(token,t){
+ if(!token||!t)return false;
+ if(location.protocol!=='https:') throw new Error('TaskPoint chưa được mở từ địa chỉ HTTPS công khai.');
+ const used=JSON.parse(localStorage.getItem('taskpoint_used_tokens')||'[]');
+ if(used.includes(token))return false;
+ try{
+   const r=await fetch('https://work.ink/_api/v2/token/isValid/'+encodeURIComponent(token)+'?deleteToken=1',{cache:'no-store'});
+   if(!r.ok)return false;
+   const result=await r.json();
+   if(!result.valid)return false;
+   used.push(token);
+   localStorage.setItem('taskpoint_used_tokens',JSON.stringify(used.slice(-500)));
+   t.done++;
+   data.points+=Number(t.reward);
+   localStorage.removeItem('taskpoint_pending_task');
+   save();
+   return true;
+ }catch(e){
+   console.error('Work.ink verification failed:',e);
+   return false;
+ }
+}
+async function checkReturnedToken(){
+ const token=getToken();
+ if(!token)return;
+ const t=getPendingTask();
+ if(!t)return;
+ const status=document.getElementById('verifyStatus');
+ if(status)status.textContent='🔎 Đang xác minh với Work.ink...';
+ const ok=await verifyWorkInkToken(token,t);
+ if(ok){
+   if(status)status.textContent='✅ Xác minh thành công! +' + t.reward + ' điểm.';
+   history.replaceState({},document.title,window.location.pathname);
+   alert('Hoàn thành nhiệm vụ! +' + t.reward + ' điểm.');
+ }else if(status){
+   status.textContent='❌ Chưa xác minh được token. Hãy kiểm tra TaskPoint đã được đăng trên HTTPS và Destination Work.ink có chứa ?token={TOKEN}; nếu vẫn lỗi, cần kiểm tra API/CORS hoặc dùng máy chủ.';
+ }
+ render();
+}
+function openTask(id){
+ const t=data.tasks.find(x=>x.id===id);
+ if(!t||!t.active||t.done>=t.limit)return;
+ localStorage.setItem('taskpoint_pending_task',String(t.id));
+ window.location.href=t.link;
+}
+function makeDestinationTemplate(){
+ const input=document.getElementById('siteUrl');
+ const out=document.getElementById('destinationTemplate');
+ const help=document.getElementById('destinationHelp');
+ let base=input.value.trim().replace(/\/+$/,'');
+ if(!base){help.classList.remove('hidden');help.textContent='Hãy nhập địa chỉ HTTPS công khai của TaskPoint trước.';out.value='';return;}
+ try{
+  const u=new URL(base);
+  if(u.protocol!=='https:'){throw new Error('https required');}
+  out.value=u.origin+u.pathname.replace(/\/$/,'')+'/?token={TOKEN}';
+  help.classList.remove('hidden');
+  help.textContent='Mẫu đã tạo. Hãy sao chép mẫu này vào Destination trong Work.ink. Đừng dùng URL content:// từ điện thoại.';
+ }catch(e){
+  help.classList.remove('hidden');help.textContent='Địa chỉ chưa hợp lệ. Hãy nhập URL bắt đầu bằng https://';out.value='';
+ }
+}
+function createTask(){
+ const name=document.getElementById('tName').value.trim();
+ const desc=document.getElementById('tDesc').value.trim();
+ const link=document.getElementById('tLink').value.trim();
+ const reward=Number(document.getElementById('tReward').value);
+ const budget=Number(document.getElementById('tBudget').value);
+ const limit=Number(document.getElementById('tLimit').value);
+ const msg=document.getElementById('sMsg');
+ if(!name||!desc||!link||reward<=0||budget<=0||limit<=0){msg.textContent='Vui lòng nhập đầy đủ thông tin.';return}
+ const maxAffordable=Math.floor(budget/(reward/100*1000));
+ if(maxAffordable<1){msg.textContent='Ngân sách quá thấp so với mức thưởng.';return}
+ data.tasks.push({id:Date.now(),name,desc,link,reward,budget,limit:Math.min(limit,maxAffordable),done:0,active:true});
+ document.getElementById('tName').value='';document.getElementById('tDesc').value='';document.getElementById('tLink').value='';
+ msg.textContent='Đã tạo nhiệm vụ demo.';
+ save();
+}
+function toggle(id){
+ const t=data.tasks.find(x=>x.id===id); if(t){t.active=!t.active;save()}
+}
+function render(){
+ document.getElementById('points').textContent=data.points;
+ document.getElementById('points2').textContent=data.points;
+ const active=data.tasks.filter(t=>t.active&&t.done<t.limit);
+ document.getElementById('taskList').innerHTML=active.length?active.map(t=>`
+ <div class="card task">
+  <h3>${esc(t.name)}</h3><p class="muted">${esc(t.desc)}</p>
+  <p class="money">+${t.reward} điểm</p>
+  <small>Đã hoàn thành ${t.done}/${t.limit} lượt</small><br><br>
+  <button class="primary" onclick="openTask(${t.id})">Mở nhiệm vụ</button>
+ </div>`).join(''):'<div class="card">Hiện chưa có nhiệm vụ.</div>';
+ document.getElementById('sponsorList').innerHTML=data.tasks.map(t=>`
+ <div class="card"><b>${esc(t.name)}</b> <span class="badge">${t.active?'Đang chạy':'Tạm dừng'}</span>
+ <p class="muted">${esc(t.desc)}</p><small>Thưởng: ${t.reward} điểm/lượt · Ngân sách: ${t.budget.toLocaleString()}đ · ${t.done}/${t.limit} lượt</small>
+ <br><br><button class="${t.active?'danger':'primary'}" onclick="toggle(${t.id})">${t.active?'Tạm dừng':'Bật lại'}</button></div>`).join('');
+ const done=data.tasks.reduce((a,t)=>a+t.done,0);
+ const pts=data.tasks.reduce((a,t)=>a+t.done*t.reward,0);
+ document.getElementById('countTasks').textContent=data.tasks.length;
+ document.getElementById('countDone').textContent=done;
+ document.getElementById('countPoints').textContent=pts;
+ document.getElementById('adminList').innerHTML='<table><tr><th>Nhiệm vụ</th><th>Ngân sách</th><th>Đã dùng</th><th>Trạng thái</th></tr>'+
+ data.tasks.map(t=>`<tr><td>${esc(t.name)}</td><td>${t.budget.toLocaleString()}đ</td><td>${t.done*t.reward} điểm</td><td>${t.active?'Đang chạy':'Tạm dừng'}</td></tr>`).join('')+'</table>';
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+render();
+checkReturnedToken();
+</script>
+</body>
+</html>
